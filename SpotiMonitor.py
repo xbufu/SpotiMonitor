@@ -108,7 +108,7 @@ def main():
     parser.add_argument("-p", dest="playlist", type=str, help="The target playlist.")
     parser.add_argument("-o", dest="output_folder", metavar="FOLDER", type=str, required=True, help="The path of the output folder.")
     parser.add_argument("-t", dest="threads", metavar="THREADS", type=int, default=8, help="The number of threads to use while downloading new tracks.")
-    parser.add_argument("--monitor", dest="monitor", metavar="SECONDS", type=int, default=150, help="Monitor playlist(s) for any changes.")
+    parser.add_argument("--monitor", dest="monitor", action="store_true", help="Monitor playlist(s) for any changes.")
     parser.add_argument("--all", dest="all", action="store_true", help="Download all playlists.")
     parser.add_argument("-v", dest="verbosity", action="store_true", help="Show progress.")
 
@@ -134,8 +134,7 @@ def main():
                     playlist_tracks = get_playlist_tracks(sp, playlist)
                     download_playlist(playlist_tracks, output_folder, playlist, threads, verbosity)
                       
-
-            time.sleep(monitor)
+            time.sleep(150)
     else:
         if playlist_name:
             playlist_tracks = get_playlist_tracks(sp, playlist_name)
