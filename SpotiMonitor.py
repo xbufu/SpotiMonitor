@@ -56,7 +56,10 @@ def get_playlist_tracks(spotify_connection, playlist_name):
     
     return track_information
 
-def download_track(track_link, destination_folder):
+def download_track(track_name, track_link, destination_folder, verbosity=False):
+    if verbosity:
+        print(f"\tDownloading track: {track_name}")
+    
     if not os.path.exists(destination_folder):
         print("Destination folder does not exist!")
         exit(1)
@@ -64,7 +67,10 @@ def download_track(track_link, destination_folder):
     subprocess.run(["spotdl", "-o", destination_folder, "--use-youtube", track_link], shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     subprocess.run(["spotdl", "-o", destination_folder, track_link], shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-def download_playlist(playlist_tracks, base_folder, playlist_name, threads=16):
+def download_playlist(playlist_tracks, base_folder, playlist_name, threads=16, verbosity=False):
+    if verbosity:
+        print(f"\nDownloading playlist: {playlist_name}\n")
+    
     playlist_folder = f"{base_folder}\\{playlist_name}"
 
     if not os.path.exists(playlist_folder):
@@ -77,9 +83,13 @@ def download_playlist(playlist_tracks, base_folder, playlist_name, threads=16):
             track_title = " - ".join([track["artists"], track["name"]]) + ".mp3"
 
             if track_title not in offline_tracks:
-                executor.submit(download_track, track["link"], playlist_folder)
+                executor.submit(download_track, track_title[:-4], track["link"], playlist_folder, verbosity)
+    
+    cleanup_playlist_files(playlist_tracks, base_folder, playlist_name, verbosity)
 
-def cleanup_playlist_files(playlist_tracks, base_folder, playlist_name):
+def cleanup_playlist_files(playlist_tracks, base_folder, playlist_name, verbosity=False):
+    if verbosity:
+        print("\n\tCleaning up leftover files...")
     offline_tracks = [f for f in os.listdir(f"{base_folder}\\{playlist_name}") if ".mp3" in f]
     
     for track in offline_tracks:
@@ -100,6 +110,7 @@ def main():
     parser.add_argument("-t", dest="threads", metavar="THREADS", type=int, default=8, help="The number of threads to use while downloading new tracks.")
     parser.add_argument("--monitor", dest="monitor", metavar="SECONDS", type=int, default=150, help="Monitor playlist(s) for any changes.")
     parser.add_argument("--all", dest="all", action="store_true", help="Download all playlists.")
+    parser.add_argument("-v", dest="verbosity", action="store_true", help="Show progress.")
 
     args = parser.parse_args()
     playlist_name = args.playlist
@@ -107,6 +118,7 @@ def main():
     threads = args.threads
     monitor = args.monitor
     download_all = args.all
+    verbosity = args.verbosity
 
     scope = "playlist-read-private"
     sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=cred.client_id, client_secret= cred.client_secret, redirect_uri=cred.redirect_url, scope=scope))
@@ -115,27 +127,24 @@ def main():
         while True:
             if playlist_name:
                 playlist_tracks = get_playlist_tracks(sp, playlist_name)
-                download_playlist(playlist_tracks, output_folder, playlist_name, threads)
-                cleanup_playlist_files(playlist_tracks, output_folder, playlist_name)
+                download_playlist(playlist_tracks, output_folder, playlist_name, threads, verbosity)
             elif download_all:
                 playlists = [playlist["name"] for playlist in sp.current_user_playlists()["items"]]            
                 for playlist in playlists:
                     playlist_tracks = get_playlist_tracks(sp, playlist)
-                    download_playlist(playlist_tracks, output_folder, playlist, threads)
-                    cleanup_playlist_files(playlist_tracks, output_folder, playlist)  
+                    download_playlist(playlist_tracks, output_folder, playlist, threads, verbosity)
+                      
 
             time.sleep(monitor)
     else:
         if playlist_name:
             playlist_tracks = get_playlist_tracks(sp, playlist_name)
-            download_playlist(playlist_tracks, output_folder, playlist_name, threads)
-            cleanup_playlist_files(playlist_tracks, output_folder, playlist_name)
+            download_playlist(playlist_tracks, output_folder, playlist_name, threads, verbosity)
         elif download_all:
             playlists = [playlist["name"] for playlist in sp.current_user_playlists()["items"]]            
             for playlist in playlists:
                 playlist_tracks = get_playlist_tracks(sp, playlist)
-                download_playlist(playlist_tracks, output_folder, playlist, threads)
-                cleanup_playlist_files(playlist_tracks, output_folder, playlist)
+                download_playlist(playlist_tracks, output_folder, playlist, threads, verbosity)
 
 if __name__ == "__main__":
     try:
